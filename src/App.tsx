@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Play, Pause, Upload, Home, Users, MessageSquare, Target, Menu, X } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Mic, Square, Play, Pause, Upload, Home, Users, MessageSquare, Target, Menu } from 'lucide-react';
 
 // Mock data for prototype
 const mockConversations = [
@@ -33,18 +33,18 @@ const App = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState(null);
-  const [audioUrl, setAudioUrl] = useState(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showRecordingModal, setShowRecordingModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const timerRef = useRef(null);
-  const canvasRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const animationRef = useRef(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -56,7 +56,6 @@ const App = () => {
 
   const startRecording = async () => {
     try {
-      // Check if getUserMedia is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         alert('⚠️ Audio recording is not supported in this environment. This feature works when deployed to your own domain (GitHub + Vercel).');
         return;
@@ -64,8 +63,8 @@ const App = () => {
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Set up audio visualization
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      audioContextRef.current = new AudioContextClass();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
@@ -76,7 +75,7 @@ const App = () => {
       mediaRecorderRef.current = new MediaRecorder(stream);
       chunksRef.current = [];
       
-      mediaRecorderRef.current.ondataavailable = (e) => {
+      mediaRecorderRef.current.ondataavailable = (e: BlobEvent) => {
         if (e.data.size > 0) {
           chunksRef.current.push(e.data);
         }
@@ -107,6 +106,8 @@ const App = () => {
     
     const canvas = canvasRef.current;
     const canvasCtx = canvas.getContext('2d');
+    if (!canvasCtx) return;
+    
     const bufferLength = analyserRef.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     
@@ -114,7 +115,7 @@ const App = () => {
       if (!isRecording && !isPaused) return;
       
       animationRef.current = requestAnimationFrame(draw);
-      analyserRef.current.getByteFrequencyData(dataArray);
+      analyserRef.current?.getByteFrequencyData(dataArray);
       
       canvasCtx.fillStyle = '#1F2937';
       canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
@@ -156,7 +157,7 @@ const App = () => {
     }
   };
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -164,7 +165,6 @@ const App = () => {
 
   const handleUpload = () => {
     setIsProcessing(true);
-    // Simulate API call
     setTimeout(() => {
       setIsProcessing(false);
       setShowRecordingModal(false);
@@ -185,7 +185,6 @@ const App = () => {
     setIsPaused(false);
   };
 
-  // Page Components
   const Dashboard = () => (
     <div className="p-4 pb-24">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
@@ -318,7 +317,6 @@ const App = () => {
     </div>
   );
 
-  // Recording Modal
   const RecordingModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
@@ -366,7 +364,7 @@ const App = () => {
           
           {audioBlob && !isProcessing && (
             <>
-              <audio controls src={audioUrl} className="w-full mb-4" />
+              <audio controls src={audioUrl || ''} className="w-full mb-4" />
               
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -421,7 +419,6 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -436,7 +433,6 @@ const App = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main>
         {currentPage === 'dashboard' && <Dashboard />}
         {currentPage === 'conversations' && <Conversations />}
@@ -444,7 +440,6 @@ const App = () => {
         {currentPage === 'family' && <Family />}
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
         <div className="flex justify-around items-center h-16">
           {[
@@ -467,7 +462,6 @@ const App = () => {
         </div>
       </nav>
 
-      {/* Recording Modal */}
       {showRecordingModal && <RecordingModal />}
     </div>
   );
